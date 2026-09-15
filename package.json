@@ -1,0 +1,26 @@
+{
+  "name": "qa",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+  "dev": "node --watch server.js",
+  "start": "node server.js"
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Athenaelenahabibi/qa.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Athenaelenahabibi/qa/issues"
+  },
+  "homepage": "https://github.com/Athenaelenahabibi/qa#readme",
+  "dependencies": {
+    "ejs": "^6.0.1",
+    "express": "^5.2.1"
+  }
+}

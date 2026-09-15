@@ -1,0 +1,50 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMA Bot</title>
+    <link rel="stylesheet" href="/assets/styles/style.css" />
+</head>
+<body>
+    <h1>Welcome To my AMA Bot</h1>
+
+    <div class="cover-container">
+    <img src="/assets/images/profile.png" alt="Billede af Martin" />
+
+    <div>
+        <h2>Hvad hedder du?</h2>
+        <p>Mit navn er Athena.</p>
+
+        <div>
+            <h2>Hvor gammel er du?</h2>
+            <p>Jeg er 26 år.</p>
+        </div>
+    </div>
+    </div>
+
+    <form method="POST" action="/ask">
+        <label for="question">Stil dit spørgsmål her:</label>
+        <input id="question" name="question" type="text" />
+        <button type="submit">Send</button>
+    </form>
+    <form method="POST" action="/clear-messages">
+        <button type="submit">Ryd beskeder</button>
+    </form>
+
+<section class="messages">
+  <% for (const message of messages) { %>
+    <article class="<%= message.type %>">
+      <p><%= message.text %></p>
+      <time><%= message.createdAt.toLocaleTimeString("da-DK") %></time>
+    </article>
+  <% } %>
+</section>
+
+<% if (error) { %>
+  <p role="alert"><%= error %></p>
+<% } %>
+
+</body>
+</html>
