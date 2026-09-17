@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import express from "express";
 
 const app = express();
@@ -9,7 +10,15 @@ app.set("view engine", "ejs");
 
 app.use(express.urlencoded({ extended: true }));
 
-const messages = [];
+async function loadMessages() {
+  const data = await fs.readFile("./data/messages.json", "utf8");
+  return JSON.parse(data);
+}
+
+async function saveMessages(messages) {
+  const json = JSON.stringify(messages, null, 2);
+  await fs.writeFile("./data/messages.json", json);
+}
 
 const answers = [
   {
@@ -35,10 +44,14 @@ const answers = [
 
 function countMatches(keywords, normalizedQuestion) {
   const matches = keywords.filter((keyword) => {
-    // TODO: Returnér true, når spørgsmålet indeholder keyword.
+    return normalizedQuestion.includes(keyword);
   });
 
-  // TODO: Returnér antallet af matches.
+  return matches.length;
+}
+
+function normalizeQuestion(question) {
+  return question.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 console.log(
@@ -58,19 +71,13 @@ console.log(
 
 
 function findBestAnswer(question) {
-  const normalizedQuestion = question.toLowerCase();
+  const normalizedQuestion = normalizeQuestion(question);
   let bestScore = 0;
   let bestAnswer = "Det kender jeg ikke svaret på endnu.";
   let bestCategory = "";
 
   for (const answerGroup of answers) {
-    let score = 0;
-
-    for (const keyword of answerGroup.keywords) {
-      if (normalizedQuestion.includes(keyword)) {
-        score++;
-      }
-    }
+    const score = countMatches(answerGroup.keywords, normalizedQuestion);
 
     if (score > bestScore) {
       bestScore = score;
@@ -102,7 +109,9 @@ const topicStats = {
 };
 
 
-app.get("/", (request, response) => {
+app.get("/", async (request, response) => {
+  const messages = await loadMessages();
+
   response.render("index", { messages, error: "", topicStats });
 });
 
@@ -120,29 +129,26 @@ app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
 
-app.post("/ask", (request, response) => {
-  const rawQuestion = request.body.question;
-  const question = sanitizeQuestion(rawQuestion).trim();
+app.post("/ask", async (request, response) => {
+  const messages = await loadMessages();
+
+  const question = request.body.question.trim();
   let error = "";
 
   if (!question) {
     error = "Skriv et spørgsmål, før du sender.";
-  } else if (question.length > 280) {
-    error = "Spørgsmålet må højst være 280 tegn.";
   } else {
-    messages.push({ type: "question", text: question, createdAt: new Date() });
+    messages.push({ type: "question", text: question });
+
     const result = findBestAnswer(question);
-    messages.push({ type: "answer", text: result.answer, createdAt: new Date() });
+    messages.push({ type: "answer", text: result.answer });
 
     if (result.category) {
       topicStats[result.category] = topicStats[result.category] + 1;
     }
   }
 
-  response.render("index", { messages, error, topicStats });
-});
+  await saveMessages(messages);
 
-app.post("/clear-messages", (request, response) => {
-  messages.length = 0;
-  response.redirect("/");
+  response.render("index", { messages, error, topicStats });
 });
