@@ -1,216 +1,47 @@
-import fs from "node:fs/promises";
+// Importerer Express og funktionen, der læser beskeder.
 import express from "express";
+import { loadMessages } from "./data/messages.js";
+import messagesRouter from "./routes/messages.js";
+import answersRouter from "./routes/answers.js";
 
+// Opretter Express-serveren og vælger porten, som serveren lytter på.
 const app = express();
 const port = 3000;
 
+// Gør det muligt for serveren at læse JSON-data fra request-body.
 app.use(express.json());
 
-async function loadMessages() {
-  const data = await fs.readFile("./data/messages.json", "utf8");
-  return JSON.parse(data);
-}
-
-async function saveMessages(messages) {
-  const json = JSON.stringify(messages, null, 2);
-  await fs.writeFile("./data/messages.json", json);
-}
-
-async function loadAnswers() {
-  const data = await fs.readFile("./data/answers.json", "utf8");
-  return JSON.parse(data);
-}
-
-async function saveAnswers(answers) {
-  const json = JSON.stringify(answers, null, 2);
-  await fs.writeFile("./data/answers.json", json);
-}
-
-const answers = [
-  {
-    category: "navn",
-    keywords: ["navn", "hedder", "hvem er du"],
-    answers: ["Jeg hedder Athena. Hvad vil du ellers vide om mig?"]
-  },
-  {
-    category: "bosted",
-    keywords: ["bor", "by", "fra"],
-    answers: ["Jeg bor i Aarhus."]
-  },
-  {
-    category: "fritid",
-    keywords: ["fritid", "hobby", "kan lide"],
-    answers: [
-      "I min fritid kan jeg godt lide at læse.",
-      "Jeg elsker at gå ture, når vejret tillader det."
-    ]
-  }
-];
-
-
-function countMatches(keywords, normalizedQuestion) {
-  const matches = keywords.filter((keyword) => {
-    return normalizedQuestion.includes(keyword);
-  });
-
-  return matches.length;
-}
-
-function normalizeQuestion(question) {
-  return question.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-console.log(
-  countMatches(["navn", "hedder", "hvem er du"], "hvad hedder du?")
-); // 1
-
-console.log(
-  countMatches(
-    ["navn", "hedder", "hvem er du"],
-    "hvad hedder du, og hvad er dit navn?"
-  )
-); // 2
-
-console.log(
-  countMatches(["navn", "hedder", "hvem er du"], "kan du bage?")
-); // 0
-
-
-function findBestAnswer(question) {
-  const normalizedQuestion = normalizeQuestion(question);
-  let bestScore = 0;
-  let bestAnswer = "Det kender jeg ikke svaret på endnu.";
-  let bestCategory = "";
-
-  for (const answerGroup of answers) {
-    const score = countMatches(answerGroup.keywords, normalizedQuestion);
-
-    if (score > bestScore) {
-      bestScore = score;
-      const randomIndex = Math.floor(Math.random() * answerGroup.answers.length);
-      bestAnswer = answerGroup.answers[randomIndex];
-      bestCategory = answerGroup.category;
-    }
-
-  
-  }
-
-  return {
-    answer: bestAnswer,
-    category: bestCategory
-  };
-}
-
-console.log(findBestAnswer("Hvad hedder du?"));
-console.log(findBestAnswer("Kan du bage en kage?"));
-
-function sanitizeQuestion(input) {
-  return input.replace(/[\u0000-\u001F\u007F]/g, "");
-}
-
+// Holder styr på, hvor mange spørgsmål der er stillet om hvert emne.
 const topicStats = {
   navn: 0,
   bosted: 0,
   fritid: 0
 };
 
-
+// Viser forsiden med de gemte beskeder og statistik over emner.
 app.get("/", async (request, response) => {
   const messages = await loadMessages();
 
   response.render("index", { messages, error: "", topicStats });
 });
 
+// Alle message-routes ligger i denne router og får automatisk /messages som prefix.
+app.use("/messages", messagesRouter);
+app.use("/answers", answersRouter);
+
+// Debug-route, der viser query-parametre fra URL'en.
 app.get("/debug", (request, response) => {
   console.log(request.query);
   response.send(request.query);
 });
 
+// Debug-route, der viser en dynamisk parameter fra URL'en.
 app.get("/debug/:name", (request, response) => {
   console.log(request.params);
   response.send(request.params);
 });
 
-app.get("/messages", async (request, response) => {
-  const messages = await loadMessages();
-
-  response.json(messages);
-});
-
-app.get("/answers", async (request, response) => {
-  const answers = await loadAnswers();
-
-  response.json(answers);
-});
-
-app.get("/answers/:category", async (request, response) => {
-  const answers = await loadAnswers();
-  const answerRule = answers.find((a) => a.category === request.params.category);
-
-  response.json(answerRule);
-});
-
-app.post("/answers", async (request, response) => {
-  const answers = await loadAnswers();
-  const newAnswerRule = {
-    category: request.body.category,
-    keywords: request.body.keywords,
-    answer: request.body.answer
-  };
-
-  answers.push(newAnswerRule);
-  await saveAnswers(answers);
-
-  response.json(newAnswerRule);
-});
-
-app.put("/answers/:category", async (request, response) => {
-  const answers = await loadAnswers();
-  const answerRule = answers.find((a) => a.category === request.params.category);
-
-  answerRule.keywords = request.body.keywords;
-  answerRule.answer = request.body.answer;
-  await saveAnswers(answers);
-
-  response.json(answerRule);
-});
-
-app.delete("/answers/:category", async (request, response) => {
-  const answers = await loadAnswers();
-  const updatedAnswers = answers.filter((a) => a.category !== request.params.category);
-
-  await saveAnswers(updatedAnswers);
-
-  response.send();
-});
-
+// Starter serveren og viser adressen i terminalen.
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
-});
-
-app.post("/messages", async (request, response) => {
-  const messages = await loadMessages();
-  const question = request.body.question.trim();
-
-  if (!question) {
-    response.json({ error: "Skriv et spørgsmål, før du sender." });
-    return;
-  }
-
-  const message = { type: "question", text: question, createdAt: new Date().toISOString() };
-  messages.push(message);
-
-  const result = findBestAnswer(question);
-  const answerMessage = { type: "answer", text: result.answer, createdAt: new Date().toISOString() };
-  messages.push(answerMessage);
-
-  await saveMessages(messages);
-
-  response.json({ question: message, answer: answerMessage });
-});
-
-app.delete("/messages", async (request, response) => {
-  await saveMessages([]);
-
-  response.send();
 });

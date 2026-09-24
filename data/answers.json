@@ -1,7 +1,12 @@
 [
   {
     "category": "hilsen",
-    "keywords": ["hej", "hallo", "hello", "hey"],
+    "keywords": [
+      "hej",
+      "hallo",
+      "hello",
+      "hey"
+    ],
     "answer": "Hej! Hvad vil du gerne vide om mig?"
   }
 ]
