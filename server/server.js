@@ -4,7 +4,11 @@ import express from "express";
 const app = express();
 const port = 3000;
 
-app.use(express.json());
+app.use(express.static("public"));
+
+app.set("view engine", "ejs");
+
+app.use(express.urlencoded({ extended: true }));
 
 async function loadMessages() {
   const data = await fs.readFile("./data/messages.json", "utf8");
@@ -14,16 +18,6 @@ async function loadMessages() {
 async function saveMessages(messages) {
   const json = JSON.stringify(messages, null, 2);
   await fs.writeFile("./data/messages.json", json);
-}
-
-async function loadAnswers() {
-  const data = await fs.readFile("./data/answers.json", "utf8");
-  return JSON.parse(data);
-}
-
-async function saveAnswers(answers) {
-  const json = JSON.stringify(answers, null, 2);
-  await fs.writeFile("./data/answers.json", json);
 }
 
 const answers = [
@@ -131,86 +125,30 @@ app.get("/debug/:name", (request, response) => {
   response.send(request.params);
 });
 
-app.get("/messages", async (request, response) => {
-  const messages = await loadMessages();
-
-  response.json(messages);
-});
-
-app.get("/answers", async (request, response) => {
-  const answers = await loadAnswers();
-
-  response.json(answers);
-});
-
-app.get("/answers/:category", async (request, response) => {
-  const answers = await loadAnswers();
-  const answerRule = answers.find((a) => a.category === request.params.category);
-
-  response.json(answerRule);
-});
-
-app.post("/answers", async (request, response) => {
-  const answers = await loadAnswers();
-  const newAnswerRule = {
-    category: request.body.category,
-    keywords: request.body.keywords,
-    answer: request.body.answer
-  };
-
-  answers.push(newAnswerRule);
-  await saveAnswers(answers);
-
-  response.json(newAnswerRule);
-});
-
-app.put("/answers/:category", async (request, response) => {
-  const answers = await loadAnswers();
-  const answerRule = answers.find((a) => a.category === request.params.category);
-
-  answerRule.keywords = request.body.keywords;
-  answerRule.answer = request.body.answer;
-  await saveAnswers(answers);
-
-  response.json(answerRule);
-});
-
-app.delete("/answers/:category", async (request, response) => {
-  const answers = await loadAnswers();
-  const updatedAnswers = answers.filter((a) => a.category !== request.params.category);
-
-  await saveAnswers(updatedAnswers);
-
-  response.send();
-});
-
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
 
-app.post("/messages", async (request, response) => {
+app.post("/ask", async (request, response) => {
   const messages = await loadMessages();
+
   const question = request.body.question.trim();
+  let error = "";
 
   if (!question) {
-    response.json({ error: "Skriv et spørgsmål, før du sender." });
-    return;
+    error = "Skriv et spørgsmål, før du sender.";
+  } else {
+    messages.push({ type: "question", text: question });
+
+    const result = findBestAnswer(question);
+    messages.push({ type: "answer", text: result.answer });
+
+    if (result.category) {
+      topicStats[result.category] = topicStats[result.category] + 1;
+    }
   }
-
-  const message = { type: "question", text: question, createdAt: new Date().toISOString() };
-  messages.push(message);
-
-  const result = findBestAnswer(question);
-  const answerMessage = { type: "answer", text: result.answer, createdAt: new Date().toISOString() };
-  messages.push(answerMessage);
 
   await saveMessages(messages);
 
-  response.json({ question: message, answer: answerMessage });
-});
-
-app.delete("/messages", async (request, response) => {
-  await saveMessages([]);
-
-  response.send();
+  response.render("index", { messages, error, topicStats });
 });
