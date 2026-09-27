@@ -1,5 +1,6 @@
 // Importerer Express og funktionen, der læser beskeder.
 import express from "express";
+import cors from "cors";
 import { loadMessages } from "./data/messages.js";
 import messagesRouter from "./routes/messages.js";
 import answersRouter from "./routes/answers.js";
@@ -10,6 +11,7 @@ const port = 3000;
 
 // Gør det muligt for serveren at læse JSON-data fra request-body.
 app.use(express.json());
+app.use(cors({ origin: "http://127.0.0.1:5500" }));
 
 // Holder styr på, hvor mange spørgsmål der er stillet om hvert emne.
 const topicStats = {
@@ -39,6 +41,18 @@ app.get("/debug", (request, response) => {
 app.get("/debug/:name", (request, response) => {
   console.log(request.params);
   response.send(request.params);
+});
+
+app.use((request, response) => {
+  response.status(404).json({ error: "Ruten blev ikke fundet." });
+});
+
+app.use((error, request, response, next) => {
+  console.error(error);
+  const status = error.status >= 400 && error.status < 500 ? error.status : 500;
+  response.status(status).json({
+    error: status === 500 ? "Der opstod en intern serverfejl." : error.message
+  });
 });
 
 // Starter serveren og viser adressen i terminalen.
