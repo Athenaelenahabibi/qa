@@ -1,50 +1,104 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="da">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMA Bot</title>
+    <title>Chatbot</title>
     <link rel="stylesheet" href="/assets/styles/style.css" />
 </head>
 <body>
-    <h1>Welcome To my AMA Bot</h1>
+  <main class="chat-window">
+    <header class="chat-header">
+      <div class="window-control" aria-hidden="true">⌝</div>
+      <div class="agent-pill">
+        <span class="agent-icon">▣</span>
+        <span>Min chatbot</span>
+        <span class="status-dot"></span>
+      </div>
+      <form method="POST" action="/clear-messages">
+        <button class="clear-button" type="submit" aria-label="Ryd samtalen">×</button>
+      </form>
+    </header>
 
-    <div class="cover-container">
-    <img src="/assets/images/profile.png" alt="Billede af Martin" />
-
-    <div>
-        <h2>Hvad hedder du?</h2>
-        <p>Mit navn er Athena.</p>
-
-        <div>
-            <h2>Hvor gammel er du?</h2>
-            <p>Jeg er 26 år.</p>
+    <section class="messages" id="messages" aria-live="polite">
+      <% if (messages.length === 0) { %>
+        <div class="welcome-message">
+          <div class="bot-avatar">▣</div>
+          <p>Hej! Hvad vil du gerne vide om mig?</p>
         </div>
-    </div>
-    </div>
+      <% } %>
+      <% for (const message of messages) { %>
+        <article class="message-row <%= message.type %>">
+          <% if (message.type === "answer") { %>
+            <div class="bot-avatar">▣</div>
+          <% } %>
+          <div class="message-bubble">
+            <p><%= message.text %></p>
+            <% if (message.createdAt) { %>
+              <time><%= new Date(message.createdAt).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" }) %></time>
+            <% } %>
+          </div>
+        </article>
+      <% } %>
+    </section>
 
-    <form method="POST" action="/ask">
-        <label for="question">Stil dit spørgsmål her:</label>
-        <input id="question" name="question" type="text" />
-        <button type="submit">Send</button>
+    <% if (error) { %>
+      <p class="error-message" id="error-message" role="alert"><%= error %></p>
+    <% } %>
+
+    <form class="question-form" id="question-form" method="POST" action="/ask">
+      <label for="question">Stil dit spørgsmål</label>
+      <div class="input-row">
+        <input id="question" name="question" type="text" placeholder="Skriv en besked..." autocomplete="off" />
+        <button type="submit" aria-label="Send spørgsmål">↑</button>
+      </div>
     </form>
-    <form method="POST" action="/clear-messages">
-        <button type="submit">Ryd beskeder</button>
-    </form>
+  </main>
+  <script>
+    const questionForm = document.querySelector("#question-form");
+    const questionInput = document.querySelector("#question");
+    const messages = document.querySelector("#messages");
 
-<section class="messages">
-  <% for (const message of messages) { %>
-    <article class="<%= message.type %>">
-      <p><%= message.text %></p>
-      <time><%= message.createdAt.toLocaleTimeString("da-DK") %></time>
-    </article>
-  <% } %>
-</section>
+    questionForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
 
-<% if (error) { %>
-  <p role="alert"><%= error %></p>
-<% } %>
+      const question = questionInput.value.trim();
+      if (!question) {
+        questionInput.focus();
+        return;
+      }
 
+      try {
+        const formData = new FormData(questionForm);
+        const response = await fetch(questionForm.action, {
+          method: "POST",
+          body: new URLSearchParams(formData)
+        });
+
+        if (!response.ok) {
+          throw new Error("Spørgsmålet kunne ikke sendes.");
+        }
+
+        const html = await response.text();
+        const parsedPage = new DOMParser().parseFromString(html, "text/html");
+        const updatedMessages = parsedPage.querySelector("#messages");
+        const oldError = document.querySelector("#error-message");
+
+        messages.replaceWith(updatedMessages);
+        oldError?.remove();
+        questionInput.value = "";
+        document.querySelector("#messages").scrollTop = document.querySelector("#messages").scrollHeight;
+        questionInput.focus();
+      } catch (error) {
+        const errorMessage = document.querySelector("#error-message") ?? document.createElement("p");
+        errorMessage.id = "error-message";
+        errorMessage.className = "error-message";
+        errorMessage.setAttribute("role", "alert");
+        errorMessage.textContent = error.message;
+        questionForm.before(errorMessage);
+      }
+    });
+  </script>
 </body>
 </html>

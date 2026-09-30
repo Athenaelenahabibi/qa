@@ -8,5 +8,42 @@
       "hey"
     ],
     "answer": "Hej! Hvad vil du gerne vide om mig?"
+  },
+  {
+    "category": "navn",
+    "keywords": [
+      "navn",
+      "hedder"
+    ],
+    "answer": "Jeg hedder Athena."
+  },
+  {
+    "category": "alder",
+    "keywords": [
+      "alder",
+      "gammel",
+      "år",
+      "26"
+    ],
+    "answer": "Jeg er 26 år gammel."
+  },
+  {
+    "category": "bosted",
+    "keywords": [
+      "by",
+      "bor",
+      "bosted",
+      "fra"
+    ],
+    "answer": "Jeg bor i Aarhus."
+  },
+  {
+    "category": "fritid",
+    "keywords": [
+      "fritid",
+      "hobby",
+      "kan lide"
+    ],
+    "answer": "I min fritid kan jeg godt lide at læse."
   }
 ]

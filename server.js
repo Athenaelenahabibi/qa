@@ -1,21 +1,32 @@
 // Importerer Express og funktionen, der læser beskeder.
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
-import { loadMessages } from "./data/messages.js";
+import ejs from "ejs";
+import { loadMessages, saveMessages } from "./data/messages.js";
+import { findBestAnswer } from "./answerLogic.js";
 import messagesRouter from "./routes/messages.js";
 import answersRouter from "./routes/answers.js";
 
 // Opretter Express-serveren og vælger porten, som serveren lytter på.
 const app = express();
 const port = 3000;
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 // Gør det muligt for serveren at læse JSON-data fra request-body.
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: "http://127.0.0.1:5500" }));
+app.engine("html", ejs.renderFile);
+app.set("view engine", "html");
+app.set("views", path.join(projectRoot, "client"));
+app.use("/assets", express.static(path.join(projectRoot, "client")));
 
 // Holder styr på, hvor mange spørgsmål der er stillet om hvert emne.
 const topicStats = {
   navn: 0,
+  alder: 0,
   bosted: 0,
   fritid: 0
 };
@@ -25,6 +36,40 @@ app.get("/", async (request, response) => {
   const messages = await loadMessages();
 
   response.render("index", { messages, error: "", topicStats });
+});
+
+app.post("/ask", async (request, response) => {
+  const messages = await loadMessages();
+  const question = typeof request.body.question === "string"
+    ? request.body.question.trim()
+    : "";
+
+  if (!question) {
+    response.render("index", {
+      messages,
+      error: "Skriv et spørgsmål, før du sender.",
+      topicStats
+    });
+    return;
+  }
+
+  const result = await findBestAnswer(question);
+  const createdAt = new Date().toISOString();
+
+  messages.push({ type: "question", text: question, createdAt });
+  messages.push({ type: "answer", text: result.answer, createdAt: new Date().toISOString() });
+  await saveMessages(messages);
+
+  if (result.category) {
+    topicStats[result.category] += 1;
+  }
+
+  response.render("index", { messages, error: "", topicStats });
+});
+
+app.post("/clear-messages", async (request, response) => {
+  await saveMessages([]);
+  response.redirect("/");
 });
 
 // Alle message-routes ligger i denne router og får automatisk /messages som prefix.
